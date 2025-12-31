@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 
+import API from "../config/api";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 import "../styles/dashboard.css";
@@ -17,7 +18,7 @@ const Dashboard = () => {
   const token = localStorage.getItem("token");
 
   /* ===============================
-     AUTH PROTECTION (CRITICAL)
+     AUTH PROTECTION
   =============================== */
   useEffect(() => {
     if (!token) {
@@ -46,14 +47,9 @@ const Dashboard = () => {
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://localhost:5000/api/clouds/connected", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
-        setConnectedClouds(data);
+    API.get("/clouds/connected")
+      .then((res) => {
+        setConnectedClouds(res.data);
         setLoading(false);
       })
       .catch(() => setLoading(false));
@@ -65,15 +61,10 @@ const Dashboard = () => {
   useEffect(() => {
     if (!token) return;
 
-    fetch("http://localhost:5000/api/google/storage", {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.connected) {
-          setStorage(data);
+    API.get("/google/storage")
+      .then((res) => {
+        if (res.data.connected) {
+          setStorage(res.data);
         } else {
           setStorage(null);
         }
@@ -82,7 +73,7 @@ const Dashboard = () => {
   }, [token]);
 
   /* ===============================
-     GOOGLE CONNECT HANDLER
+     GOOGLE CONNECT HANDLER (FIXED ✅)
   =============================== */
   const handleGoogleConnect = () => {
     if (!userId) {
@@ -90,8 +81,10 @@ const Dashboard = () => {
       return;
     }
 
-    window.location.href =
-      `http://localhost:5000/api/google/connect?userId=${userId}`;
+    const backendBaseUrl =
+      import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+
+    window.location.href = `${backendBaseUrl}/api/google/connect?userId=${userId}`;
   };
 
   return (
@@ -132,7 +125,7 @@ const Dashboard = () => {
                     <div
                       className="progress-fill"
                       style={{
-                        width: `${(storage.usedGB / storage.totalGB) * 100}%`
+                        width: `${(storage.usedGB / storage.totalGB) * 100}%`,
                       }}
                     />
                   </div>

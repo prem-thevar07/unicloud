@@ -121,9 +121,11 @@ const Auth = () => {
   /* ===============================
      GOOGLE LOGIN
   =============================== */
-  const googleLogin = () => {
-    window.location.href = "http://localhost:5000/api/auth/google";
-  };
+ const googleLogin = () => {
+  const backendBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+  window.location.href = `${backendBaseUrl}/api/auth/google`;
+};
+
 
   return (
     <>
