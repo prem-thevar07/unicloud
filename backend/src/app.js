@@ -15,17 +15,22 @@ const app = express();
 
 /* =======================
    ✅ CORS CONFIG (FINAL)
+   Works for:
+   - Localhost (Vite)
+   - Netlify (Production)
 ======================= */
 const allowedOrigins = [
-  "http://localhost:5173",            // local Vite
-  process.env.FRONTEND_URL,           // Netlify
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
 ];
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (Postman, mobile apps)
-      if (!origin || allowedOrigins.includes(origin)) {
+    origin: (origin, callback) => {
+      // Allow server-to-server, Postman, mobile apps
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("CORS not allowed"));
@@ -36,9 +41,10 @@ app.use(
 );
 
 /* =======================
-   MIDDLEWARES
+   GLOBAL MIDDLEWARES
 ======================= */
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(passport.initialize());
 
 /* =======================
@@ -46,17 +52,26 @@ app.use(passport.initialize());
 ======================= */
 app.use("/api/auth", authRoutes);
 app.use("/api/google", googleRoutes);
-app.use("/api/clouds", cloudRoutes);
 app.use("/api/google", googleStorageRoutes);
-
+app.use("/api/clouds", cloudRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/profile", profileRoutes);
 
 /* =======================
-   HEALTH CHECK (OPTIONAL)
+   HEALTH CHECK
 ======================= */
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK" });
+});
+
+/* =======================
+   GLOBAL ERROR HANDLER
+======================= */
+app.use((err, req, res, next) => {
+  console.error("Global error:", err.message);
+  res.status(500).json({
+    message: err.message || "Internal server error",
+  });
 });
 
 export default app;

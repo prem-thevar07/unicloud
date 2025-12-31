@@ -5,21 +5,42 @@ export const googleCallback = async (req, res) => {
   try {
     const { code, state } = req.query;
 
+    /* ===============================
+       VALIDATION
+    =============================== */
     if (!state) {
-      return res.status(400).send("Missing userId in state");
+      return res.status(400).send("Missing userId in OAuth state");
     }
 
+    if (!code) {
+      return res.status(400).send("Missing OAuth authorization code");
+    }
+
+    /* ===============================
+       EXCHANGE CODE FOR TOKENS
+    =============================== */
     const { tokens } = await oauth2Client.getToken(code);
+    oauth2Client.setCredentials(tokens);
 
-    await CloudAccount.create({
-      userId: state, // ✅ real logged-in user ID
-      provider: "google",
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token || null,
-      scope: tokens.scope.split(" ")
-    });
+    /* ===============================
+       SAVE / UPDATE CLOUD ACCOUNT
+    =============================== */
+    await CloudAccount.findOneAndUpdate(
+      { userId: state, provider: "google" },
+      {
+        userId: state,
+        provider: "google",
+        accessToken: tokens.access_token,
+        refreshToken: tokens.refresh_token || null,
+        scope: tokens.scope ? tokens.scope.split(" ") : [],
+      },
+      { upsert: true, new: true }
+    );
 
-    res.redirect("http://localhost:5173/dashboard");
+    /* ===============================
+       REDIRECT TO FRONTEND (FIXED ✅)
+    =============================== */
+    res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
   } catch (err) {
     console.error("Google OAuth Error:", err);
     res.status(500).send("Google OAuth failed");
