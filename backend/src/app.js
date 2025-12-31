@@ -3,7 +3,6 @@ import cors from "cors";
 import passport from "passport";
 
 import authRoutes from "./routes/authRoutes.js";
-import googleRoutes from "./routes/google.routes.js";
 import cloudRoutes from "./routes/cloud.routes.js";
 import googleStorageRoutes from "./routes/google.storage.routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -51,7 +50,6 @@ app.use(passport.initialize());
    ROUTES
 ======================= */
 app.use("/api/auth", authRoutes);
-app.use("/api/google", googleRoutes);
 app.use("/api/google", googleStorageRoutes);
 app.use("/api/clouds", cloudRoutes);
 app.use("/api/user", userRoutes);
