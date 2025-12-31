@@ -2,29 +2,17 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.js";
 
-/*
-  IMPORTANT:
-  - No localhost
-  - Absolute URL
-  - Environment based
-*/
-
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-
-      // ✅ FIX: ABSOLUTE CALLBACK URL
       callbackURL: `${process.env.BASE_URL}/api/auth/google/callback`,
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
         const email = profile.emails?.[0]?.value;
-
-        if (!email) {
-          return done(new Error("Google account has no email"), null);
-        }
+        if (!email) return done(new Error("No email from Google"), null);
 
         let user = await User.findOne({ email });
 
@@ -33,11 +21,12 @@ passport.use(
             name: profile.displayName,
             email,
             isVerified: true,
-            password: "google-oauth", // placeholder
+            password: "google-oauth",
           });
         }
 
-        return done(null, user);
+        /* ✅ PASS TOKENS FOR DRIVE */
+        return done(null, user, { accessToken, refreshToken });
       } catch (err) {
         return done(err, null);
       }
@@ -45,15 +34,5 @@ passport.use(
   )
 );
 
-/* ===============================
-   REQUIRED FOR PASSPORT
-=============================== */
-passport.serializeUser((user, done) => {
-  done(null, user);
-});
-
-passport.deserializeUser((user, done) => {
-  done(null, user);
-});
-
-export default passport;
+passport.serializeUser((u, d) => d(null, u));
+passport.deserializeUser((u, d) => d(null, u));

@@ -1,6 +1,7 @@
 import express from "express";
 import passport from "passport";
 import jwt from "jsonwebtoken";
+import CloudAccount from "../models/CloudAccount.js";
 
 import {
   register,
@@ -20,12 +21,18 @@ router.post("/login", login);
 router.post("/resend-otp", resendOTP);
 
 /* ===============================
-   GOOGLE LOGIN
+   GOOGLE LOGIN + DRIVE CONNECT
 =============================== */
 router.get(
   "/google",
   passport.authenticate("google", {
-    scope: ["profile", "email"],
+    scope: [
+      "profile",
+      "email",
+      "https://www.googleapis.com/auth/drive.readonly",
+    ],
+    accessType: "offline",
+    prompt: "consent",
     session: false,
   })
 );
@@ -36,8 +43,30 @@ router.get(
     session: false,
     failureRedirect: `${process.env.FRONTEND_URL}/auth`,
   }),
-  (req, res) => {
+  async (req, res) => {
     try {
+      /* ===============================
+         SAVE GOOGLE DRIVE TOKENS ✅
+      =============================== */
+      const { accessToken, refreshToken } = req.authInfo || {};
+
+      if (accessToken) {
+        await CloudAccount.findOneAndUpdate(
+          { userId: req.user._id, provider: "google" },
+          {
+            userId: req.user._id,
+            provider: "google",
+            accessToken,
+            refreshToken,
+            connectedAt: new Date(),
+          },
+          { upsert: true }
+        );
+      }
+
+      /* ===============================
+         ISSUE JWT
+      =============================== */
       const token = jwt.sign(
         { id: req.user._id },
         process.env.JWT_SECRET,
@@ -45,13 +74,13 @@ router.get(
       );
 
       /* ===============================
-         REDIRECT TO FRONTEND (FIXED ✅)
+         REDIRECT TO FRONTEND
       =============================== */
       res.redirect(
         `${process.env.FRONTEND_URL}/auth/success?token=${token}`
       );
     } catch (err) {
-      console.error("JWT creation failed:", err);
+      console.error("Google OAuth callback error:", err);
       res.redirect(`${process.env.FRONTEND_URL}/auth`);
     }
   }
