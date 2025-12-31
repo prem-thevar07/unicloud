@@ -75,17 +75,13 @@ const Dashboard = () => {
   /* ===============================
      GOOGLE CONNECT HANDLER (FIXED ✅)
   =============================== */
-  const handleGoogleConnect = () => {
-    if (!userId) {
-      alert("User not logged in");
-      return;
-    }
+const handleGoogleConnect = () => {
+  const backendBaseUrl =
+    import.meta.env.VITE_API_BASE_URL.replace("/api", "");
 
-    const backendBaseUrl =
-      import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+  window.location.href = `${backendBaseUrl}/api/auth/google`;
+};
 
-    window.location.href = `${backendBaseUrl}/api/google/connect?userId=${userId}`;
-  };
 
   return (
     <>
