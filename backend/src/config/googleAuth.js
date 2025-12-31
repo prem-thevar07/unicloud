@@ -1,34 +1,59 @@
 import passport from "passport";
-import GoogleStrategy from "passport-google-oauth20";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User from "../models/User.js";
 
-console.log("GOOGLE CLIENT ID:", process.env.GOOGLE_CLIENT_ID);
+/*
+  IMPORTANT:
+  - No localhost
+  - Absolute URL
+  - Environment based
+*/
 
 passport.use(
   new GoogleStrategy(
     {
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: "/api/auth/google/callback"
+
+      // ✅ FIX: ABSOLUTE CALLBACK URL
+      callbackURL: `${process.env.BASE_URL}/api/auth/google/callback`,
     },
-    async (_, __, profile, done) => {
+    async (accessToken, refreshToken, profile, done) => {
       try {
-        const existingUser = await User.findOne({
-          email: profile.emails[0].value
-        });
+        const email = profile.emails?.[0]?.value;
 
-        if (existingUser) return done(null, existingUser);
+        if (!email) {
+          return done(new Error("Google account has no email"), null);
+        }
 
-        const newUser = await User.create({
-          name: profile.displayName,
-          email: profile.emails[0].value,
-          password: "google-oauth"
-        });
+        let user = await User.findOne({ email });
 
-        done(null, newUser);
+        if (!user) {
+          user = await User.create({
+            name: profile.displayName,
+            email,
+            isVerified: true,
+            password: "google-oauth", // placeholder
+          });
+        }
+
+        return done(null, user);
       } catch (err) {
-        done(err, null);
+        return done(err, null);
       }
     }
   )
 );
+
+/* ===============================
+   REQUIRED FOR PASSPORT
+=============================== */
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
+
+export default passport;
