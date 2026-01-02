@@ -6,8 +6,6 @@ import "../styles/auth.css";
 /* ===============================
    PASSWORD CHECK FUNCTION
 =============================== */
-
-
 const validatePassword = (password) => ({
   length: password.length >= 8,
   upper: /[A-Z]/.test(password),
@@ -16,10 +14,9 @@ const validatePassword = (password) => ({
   special: /[!@#$%^&*(),.?":{}|<>]/.test(password)
 });
 
-
-
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
+
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -37,7 +34,6 @@ const Auth = () => {
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
-
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -46,10 +42,8 @@ const Auth = () => {
   =============================== */
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
 
-    setForm({ ...form, [name]: value });
-
-    // Live password validation (signup only)
     if (name === "password" && !isLogin) {
       setPasswordChecks(validatePassword(value));
     }
@@ -61,9 +55,14 @@ const Auth = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    try {
-      if (isLogin) {
-        // LOGIN
+    // Prevent double submission
+    if (loading) return;
+
+    /* ---------- LOGIN ---------- */
+    if (isLogin) {
+      try {
+        setLoading(true);
+
         const res = await loginUser({
           email: form.email,
           password: form.password
@@ -71,61 +70,68 @@ const Auth = () => {
 
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user", JSON.stringify(res.data.user));
+
         navigate("/dashboard");
         window.location.reload();
-      } else {
-        // SIGN UP
+      } catch (err) {
+        const message = err.response?.data?.message;
 
-        if (form.password !== form.confirmPassword) {
-          alert("Passwords do not match");
-          return;
-        }
-
-        const allValid = Object.values(passwordChecks).every(Boolean);
-        if (!allValid) {
-          alert("Password does not meet security requirements");
-          return;
-        }
-
-        try {
-          setLoading(true);
-
-          await registerUser({
-            name: form.name,
-            email: form.email,
-            password: form.password
-          });
-
+        if (message === "Please verify your email first") {
           navigate("/verify-otp", {
             state: { email: form.email }
           });
-        } catch (err) {
-          alert(err.response?.data?.message || "Registration failed");
-        } finally {
-          setLoading(false);
+        } else {
+          alert(message || "Login failed");
         }
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      const message = err.response?.data?.message;
 
-      if (message === "Please verify your email first") {
-        navigate("/verify-otp", {
-          state: { email: form.email }
-        });
-      } else {
-        alert(message || "Authentication failed");
-      }
+      return;
+    }
+
+    /* ---------- SIGN UP ---------- */
+    if (form.password !== form.confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    if (!isPasswordValid) {
+      alert("Password does not meet security requirements");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      await registerUser({
+        name: form.name,
+        email: form.email,
+        password: form.password
+      });
+
+      // Navigate ONLY after successful backend response
+      navigate("/verify-otp", {
+        state: { email: form.email }
+      });
+    } catch (err) {
+      alert(
+        err.response?.data?.message ||
+        "Unable to send OTP. Please try again."
+      );
+    } finally {
+      // 🔥 THIS GUARANTEES NO INFINITE LOADER
+      setLoading(false);
     }
   };
 
   /* ===============================
      GOOGLE LOGIN
   =============================== */
- const googleLogin = () => {
-  const backendBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
-  window.location.href = `${backendBaseUrl}/api/auth/google`;
-};
-
+  const googleLogin = () => {
+    const backendBaseUrl = import.meta.env.VITE_API_BASE_URL.replace("/api", "");
+    window.location.href = `${backendBaseUrl}/api/auth/google`;
+  };
 
   return (
     <>
@@ -133,10 +139,11 @@ const Auth = () => {
         <div className="logo">Unicloud</div>
       </header>
 
+      {/* 🔄 GLOBAL LOADING OVERLAY */}
       {loading && (
         <div className="loading-overlay">
           <div className="spinner"></div>
-          <p>Sending OTP to your email...</p>
+          <p>{isLogin ? "Signing in..." : "Sending OTP to your email..."}</p>
         </div>
       )}
 
@@ -153,12 +160,14 @@ const Auth = () => {
           <button
             className={`tab ${isLogin ? "active" : ""}`}
             onClick={() => setIsLogin(true)}
+            disabled={loading}
           >
             Login
           </button>
           <button
             className={`tab ${!isLogin ? "active" : ""}`}
             onClick={() => setIsLogin(false)}
+            disabled={loading}
           >
             Sign up
           </button>
@@ -196,7 +205,6 @@ const Auth = () => {
 
           {/* 🔐 PASSWORD CHECKLIST */}
           {!isLogin && (
-
             <div className="password-checklist">
               <div className="pass1">
                 <div className={passwordChecks.length ? "check done" : "check"}>
@@ -206,8 +214,8 @@ const Auth = () => {
                   <span>✓</span> One uppercase letter
                 </div>
               </div>
-              <div className="pass2">
 
+              <div className="pass2">
                 <div className={passwordChecks.number ? "check done" : "check"}>
                   <span>✓</span> One number
                 </div>
@@ -216,7 +224,6 @@ const Auth = () => {
                 </div>
               </div>
             </div>
-
           )}
 
           {!isLogin && (
@@ -233,19 +240,22 @@ const Auth = () => {
           <button
             className="primary-btn"
             type="submit"
-            disabled={
-              loading ||
-              (!isLogin && !isPasswordValid)
-            }
+            disabled={loading || (!isLogin && !isPasswordValid)}
           >
-            {loading ? "Creating account..." : isLogin ? "Login" : "Register"}
+            {loading
+              ? isLogin
+                ? "Signing in..."
+                : "Creating account..."
+              : isLogin
+              ? "Login"
+              : "Register"}
           </button>
-
 
           <button
             type="button"
             className="google-btn"
             onClick={googleLogin}
+            disabled={loading}
           >
             Continue with Google
           </button>

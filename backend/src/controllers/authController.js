@@ -16,14 +16,20 @@ export const register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
+    // Check existing user
     const userExists = await User.findOne({ email });
-    if (userExists)
-      return res.status(400).json({ message: "User already exists, continue to login." });
+    if (userExists) {
+      return res.status(400).json({
+        message: "User already exists, continue to login."
+      });
+    }
 
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = generateOTP();
 
-    await User.create({
+    // Create user first
+    const user = await User.create({
       name,
       email,
       password: hashedPassword,
@@ -32,13 +38,33 @@ export const register = async (req, res) => {
       isVerified: false
     });
 
-    await sendOTPEmail(email, otp);
 
-    res.status(201).json({
+    console.log("Reached OTP email send step");
+
+    // Send OTP email (ISOLATED FAILURE)
+    try {
+      console.log("Sending OTP email to:", email);
+      await sendOTPEmail(email, otp);
+    } catch (emailError) {
+      console.error("OTP email failed:", emailError);
+
+      // Cleanup user if OTP email fails
+      await User.findByIdAndDelete(user._id);
+
+      return res.status(500).json({
+        message: "Failed to send OTP email. Please try again."
+      });
+    }
+
+    return res.status(201).json({
       message: "OTP sent to email. Please verify."
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Registration failed" });
+    console.error("Register error:", err);
+    return res.status(500).json({
+      message: "Registration failed"
+    });
   }
 };
 
@@ -64,9 +90,13 @@ export const verifyOTP = async (req, res) => {
     user.otpExpiry = undefined;
     await user.save();
 
-    res.json({ message: "Email verified successfully" });
+    return res.json({ message: "Email verified successfully" });
+
   } catch (err) {
-    res.status(500).json({ message: "OTP verification failed" });
+    console.error("Verify OTP error:", err);
+    return res.status(500).json({
+      message: "OTP verification failed"
+    });
   }
 };
 
@@ -96,7 +126,7 @@ export const login = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    res.json({
+    return res.json({
       token,
       user: {
         id: user._id,
@@ -104,16 +134,16 @@ export const login = async (req, res) => {
         email: user.email
       }
     });
+
   } catch (err) {
-    res.status(500).json({ message: "Login failed" });
+    console.error("Login error:", err);
+    return res.status(500).json({ message: "Login failed" });
   }
 };
 
-
 /* ======================
-      Resend OTP
+   RESEND OTP
 ====================== */
-
 export const resendOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -125,16 +155,31 @@ export const resendOTP = async (req, res) => {
     if (user.isVerified)
       return res.status(400).json({ message: "User already verified" });
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateOTP();
 
     user.otp = otp;
     user.otpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    await sendOTPEmail(email, otp);
+    try {
+      console.log("Resending OTP to:", email);
+      await sendOTPEmail(email, otp);
+    } catch (emailError) {
+      console.error("Resend OTP email failed:", emailError);
 
-    res.json({ message: "OTP resent successfully" });
+      return res.status(500).json({
+        message: "Failed to resend OTP. Try again later."
+      });
+    }
+
+    return res.json({ message: "OTP resent successfully" });
+
   } catch (err) {
-    res.status(500).json({ message: "Failed to resend OTP" });
+    console.error("Resend OTP error:", err);
+    return res.status(500).json({
+      message: "Failed to resend OTP"
+    });
   }
 };
+
+
