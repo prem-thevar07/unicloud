@@ -3,19 +3,12 @@ import axios from "axios";
 export const sendOTPEmail = async (email, otp) => {
   try {
     const response = await axios.post(
-      "https://api.brevo.com/v3/smtp/email",
+      "https://api.resend.com/emails",
       {
-        sender: {
-          name: "Unicloud",
-          email: "unicloud.services.help@gmail.com"
-        },
-        to: [
-          {
-            email
-          }
-        ],
+        from: "Unicloud <onboarding@resend.dev>", // FREE verified sender
+        to: [email],
         subject: "Verify your email - Unicloud OTP",
-        htmlContent: `
+        html: `
           <div style="font-family:Arial">
             <h2>Unicloud Email Verification</h2>
             <p>Your OTP is:</p>
@@ -27,17 +20,17 @@ export const sendOTPEmail = async (email, otp) => {
       },
       {
         headers: {
-          "api-key": process.env.BREVO_API_KEY,
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
           "Content-Type": "application/json"
         },
-        timeout: 10000 // 10 seconds
+        timeout: 10000
       }
     );
 
-    console.log("Brevo API email sent:", response.data);
+    console.log("Resend email sent:", response.data);
   } catch (error) {
     console.error(
-      "Brevo API email error:",
+      "Resend email error:",
       error.response?.data || error.message
     );
     throw error;
