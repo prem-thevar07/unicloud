@@ -1,52 +1,42 @@
-import axios from "axios";
+import nodemailer from "nodemailer";
 
-export const sendOTPEmail = async (email, otp) => {
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_APP_PASSWORD
+  }
+});
+
+// Optional: verify connection on startup
+transporter.verify((err, success) => {
+  if (err) {
+    console.error("Gmail SMTP verification failed:", err);
+  } else {
+    console.log("Gmail SMTP is ready");
+  }
+});
+
+export const sendOTPEmail = async (toEmail, otp) => {
   try {
-    await axios.post(
-      "https://api.mailjet.com/v3.1/send",
-      {
-        Messages: [
-          {
-            From: {
-              Email: process.env.MAILJET_FROM_EMAIL,
-              Name: process.env.MAILJET_FROM_NAME
-            },
-            To: [
-              {
-                Email: email
-              }
-            ],
-            Subject: "Verify your email - Unicloud OTP",
-            HTMLPart: `
-              <div style="font-family: Arial, sans-serif">
-                <h2>Unicloud Email Verification</h2>
-                <p>Your OTP is:</p>
-                <h1>${otp}</h1>
-                <p>This OTP is valid for <b>10 minutes</b>.</p>
-                <p>If you didn’t request this, ignore this email.</p>
-              </div>
-            `
-          }
-        ]
-      },
-      {
-        auth: {
-          username: process.env.MAILJET_API_KEY,
-          password: process.env.MAILJET_API_SECRET
-        },
-        headers: {
-          "Content-Type": "application/json"
-        },
-        timeout: 10000
-      }
-    );
+    const info = await transporter.sendMail({
+      from: process.env.EMAIL_FROM,
+      to: toEmail,
+      subject: "Verify your email - Unicloud OTP",
+      html: `
+        <div style="font-family: Arial, sans-serif">
+          <h2>Unicloud Email Verification</h2>
+          <p>Your OTP is:</p>
+          <h1>${otp}</h1>
+          <p>This OTP is valid for <b>10 minutes</b>.</p>
+          <p>If you didn’t request this, ignore this email.</p>
+        </div>
+      `
+    });
 
-    console.log("Mailjet OTP email sent to:", email);
+    console.log("OTP email sent:", info.messageId);
   } catch (error) {
-    console.error(
-      "Mailjet email error:",
-      error.response?.data || error.message
-    );
-    throw error; // IMPORTANT for controller handling
+    console.error("Gmail SMTP send error:", error);
+    throw error; // IMPORTANT: let controller handle failure
   }
 };
