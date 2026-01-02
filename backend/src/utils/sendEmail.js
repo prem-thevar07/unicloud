@@ -7,7 +7,7 @@ export const sendOTPEmail = async (email, otp) => {
       {
         sender: {
           name: "Unicloud",
-          email: "no-reply@unicloud.app"
+          email: "unicloud.services.help@gmail.com"
         },
         to: [
           {
