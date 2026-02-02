@@ -1,42 +1,24 @@
-import nodemailer from "nodemailer";
+// TEMP OTP SENDER (NO SMTP, NO NODEMAILER)
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_APP_PASSWORD
-  }
-});
-
-// Optional: verify connection on startup
-transporter.verify((err, success) => {
-  if (err) {
-    console.error("Gmail SMTP verification failed:", err);
-  } else {
-    console.log("Gmail SMTP is ready");
-  }
-});
-
+// This function keeps the SAME signature
+// so you do NOT need to change controllers
 export const sendOTPEmail = async (toEmail, otp) => {
   try {
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM,
-      to: toEmail,
-      subject: "Verify your email - Unicloud OTP",
-      html: `
-        <div style="font-family: Arial, sans-serif">
-          <h2>Unicloud Email Verification</h2>
-          <p>Your OTP is:</p>
-          <h1>${otp}</h1>
-          <p>This OTP is valid for <b>10 minutes</b>.</p>
-          <p>If you didn’t request this, ignore this email.</p>
-        </div>
-      `
-    });
+    console.log(`
+========================================
+📧 OTP DELIVERY (TEMP MODE)
+----------------------------------------
+To Email : ${toEmail}
+OTP      : ${otp}
+Valid for: 10 minutes
+========================================
+    `);
 
-    console.log("OTP email sent:", info.messageId);
+    // Simulate async success (like an API/email)
+    return Promise.resolve(true);
+
   } catch (error) {
-    console.error("Gmail SMTP send error:", error);
-    throw error; // IMPORTANT: let controller handle failure
+    console.error("OTP console log failed:", error);
+    throw error;
   }
 };
