@@ -8,6 +8,7 @@ import OtpVerify from "./pages/OtpVerify";
 import Profile from "./pages/Profile";
 import OAuthSuccess from "./pages/OAuthSuccess";
 import About from "./pages/About";
+import Files from "./pages/Files";
 
 
 
@@ -22,6 +23,8 @@ function App() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/oauth-success" element={<OAuthSuccess />} />
       <Route path="/about" element={<About />} />
+      <Route path="/files" element={<Files />} />
+      
 
 
 
