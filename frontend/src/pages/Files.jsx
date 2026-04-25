@@ -2,17 +2,38 @@ import { useEffect, useState } from "react";
 import { getFiles } from "../services/fileService";
 import "../styles/files.css";
 
+/* ===============================
+   PROVIDER ICONS
+=============================== */
 const providerIcons = {
-  google: "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+  google: "/assets/google.png",
 };
 
+/* ===============================
+   FILE TYPE ICONS
+=============================== */
+const getFileIcon = (file) => {
+  const name = file.name?.toLowerCase() || "";
+
+  if (name.endsWith(".pdf")) return "📕";
+  if (name.endsWith(".doc") || name.endsWith(".docx")) return "📄";
+  if (name.endsWith(".xls") || name.endsWith(".xlsx")) return "📊";
+  if (name.endsWith(".zip") || name.endsWith(".rar")) return "🗜";
+  if (file.type === "image") return "🖼";
+  if (file.type === "video") return "🎬";
+
+  return "📁";
+};
+
+/* ===============================
+   MAIN COMPONENT
+=============================== */
 const Files = () => {
   const [files, setFiles] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
 
-  const [provider, setProvider] = useState("all");
-  const [account, setAccount] = useState("all");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetchFiles();
@@ -20,13 +41,15 @@ const Files = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [files, provider, account]);
+  }, [files, search]);
 
   const fetchFiles = async () => {
     try {
-      const res = await getFiles({ view: "unified" });
+      const res = await getFiles({
+        view: "unified",
+        mode: "files",
+      });
 
-      // 🔥 flatten data
       const all = [
         ...(res.document || []),
         ...(res.other || []),
@@ -41,12 +64,10 @@ const Files = () => {
   const applyFilters = () => {
     let data = [...files];
 
-    if (provider !== "all") {
-      data = data.filter((f) => f.provider === provider);
-    }
-
-    if (account !== "all") {
-      data = data.filter((f) => f.accountId === account);
+    if (search) {
+      data = data.filter((f) =>
+        f.name?.toLowerCase().includes(search.toLowerCase())
+      );
     }
 
     setFiltered(data);
@@ -77,8 +98,20 @@ const Files = () => {
 
       {/* MAIN */}
       <main className="main">
+        {/* 🔥 SEARCH BAR */}
+        <div className="topbar">
+          <input
+            type="text"
+            placeholder="Search files..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+
+        {/* TABLE */}
         <div className="table">
           <div className="table-header">
+            <span>Icon</span>
             <span>Name</span>
             <span>Source</span>
             <span>Modified</span>
@@ -94,8 +127,17 @@ const Files = () => {
               }`}
               onClick={() => setSelectedFile(file)}
             >
-              <span>{file.name}</span>
+              {/* ICON */}
+              <span className="file-icon">
+                {getFileIcon(file)}
+              </span>
 
+              {/* NAME */}
+              <span className="file-name" title={file.name}>
+                {file.name}
+              </span>
+
+              {/* SOURCE */}
               <span className="source">
                 <img
                   src={providerIcons[file.provider]}
@@ -104,14 +146,17 @@ const Files = () => {
                 {file.provider}
               </span>
 
+              {/* DATE */}
               <span>
                 {file.createdAt
                   ? new Date(file.createdAt).toLocaleString()
                   : "-"}
               </span>
 
+              {/* SIZE */}
               <span>{file.size || "-"}</span>
 
+              {/* OPEN */}
               <span>
                 <a
                   href={file.url}
@@ -132,13 +177,15 @@ const Files = () => {
         {selectedFile ? (
           <>
             <div className="preview">
-              <div className="file-icon">📄</div>
+              <div className="file-icon large">
+                {getFileIcon(selectedFile)}
+              </div>
             </div>
 
-            <h3>{selectedFile.name}</h3>
+            <h3 className="truncate">{selectedFile.name}</h3>
 
-            <p>Provider: {selectedFile.provider}</p>
-            <p>Size: {selectedFile.size || "-"}</p>
+            <p><b>Provider:</b> {selectedFile.provider}</p>
+            <p><b>Size:</b> {selectedFile.size || "-"}</p>
 
             <a
               href={selectedFile.url}
@@ -146,7 +193,7 @@ const Files = () => {
               rel="noreferrer"
               className="open-btn"
             >
-              Open File
+              Open File ↗
             </a>
           </>
         ) : (

@@ -1,35 +1,33 @@
-export const normalizeFile = (file, provider, accountId) => {
+export const normalizeFile = (
+  file,
+  provider,
+  accountId,
+  accountEmail
+) => {
   let type = "other";
 
   if (provider === "google") {
     if (file.mimeType?.startsWith("image/")) type = "image";
     else if (file.mimeType?.startsWith("video/")) type = "video";
+    else if (file.mimeType?.includes("pdf")) type = "document";
     else if (
-      file.mimeType?.includes("pdf") ||
-      file.mimeType?.includes("document")
-    ) {
+      file.mimeType?.includes("word") ||
+      file.mimeType?.includes("sheet") ||
+      file.mimeType?.includes("excel")
+    )
       type = "document";
-    }
-
-    const fileId = file.id;
 
     return {
-      id: fileId,
+      id: file.id,
       name: file.name,
       type,
+      size: file.size || 0,
       provider,
       accountId,
-
-      // 🔥 FIXED THUMBNAIL
-      thumbnail: `https://drive.google.com/thumbnail?id=${fileId}&sz=w320`,
-
-      // preview (iframe)
-      previewUrl: `https://drive.google.com/file/d/${fileId}/preview`,
-
-      // open in new tab
-      url: `https://drive.google.com/file/d/${fileId}/view`,
-
-      createdAt: file.createdTime,
+      accountEmail, // 🔥 NEW
+      thumbnail: file.thumbnailLink || null,
+      url: file.webViewLink || null,
+      createdAt: file.createdTime || null,
     };
   }
 

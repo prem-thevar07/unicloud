@@ -3,31 +3,18 @@ import { fetchGoogleFiles } from "./providers/google.provider.js";
 import { normalizeFile } from "../utils/fileNormalizer.js";
 
 /* ===============================
-   SAFE PROMISE WITH TIMEOUT 🔥
-=============================== */
-const withTimeout = (promise, ms = 5000) => {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout")), ms)
-    ),
-  ]);
-};
-
-/* ===============================
    MAIN SERVICE
 =============================== */
 export const getAllFiles = async (userId, query = {}) => {
   try {
-    console.log("🔥 STEP 1: getAllFiles started");
-
     const {
       view = "unified",
       type,
       search,
-      page = 1,
-      limit = 20,
+      mode = "all", // files | photos | all
     } = query;
+
+    console.log("🔥 Fetching files with mode:", mode);
 
     /* ===============================
        1️⃣ GET ACCOUNTS
@@ -40,41 +27,38 @@ export const getAllFiles = async (userId, query = {}) => {
     }
 
     /* ===============================
-       2️⃣ FETCH FILES (SAFE PARALLEL)
+       2️⃣ FETCH FILES (SAFE)
     =============================== */
     const results = await Promise.all(
       accounts.map(async (account) => {
         try {
-          console.log(`👉 Fetching from ${account.provider}`);
-
           let files = [];
 
           if (account.provider === "google") {
             console.log("⏳ Google fetch start");
 
-            const res = await withTimeout(
-              fetchGoogleFiles(account),
-              5000
-            );
+            const res = await fetchGoogleFiles(account);
 
-            // 🔥 FIX: extract files array correctly
+            console.log("✅ Google fetch success");
+
+            // 🔥 CRITICAL FIX
             files = res?.files || [];
-
-            console.log(`✅ Google fetch done (${files.length} files)`);
           }
 
-          // Normalize safely
+          // 🔥 normalize safely
           return files
             .map((file) =>
-              normalizeFile(file, account.provider, account._id)
+              normalizeFile(
+                file,
+                account.provider,
+                account._id,
+                account.email
+              )
             )
             .filter(Boolean);
         } catch (err) {
-          console.error(
-            `❌ ${account.provider} failed:`,
-            err.message
-          );
-          return []; // NEVER BREAK SYSTEM
+          console.error(`❌ ${account.provider} error:`, err.message);
+          return []; // never break system
         }
       })
     );
@@ -85,25 +69,39 @@ export const getAllFiles = async (userId, query = {}) => {
     let allFiles = results.flat();
 
     /* ===============================
-       4️⃣ SEARCH
+       4️⃣ MODE FILTER
+    =============================== */
+    if (mode === "files") {
+      allFiles = allFiles.filter(
+        (f) => f.type !== "image" && f.type !== "video"
+      );
+    }
+
+    if (mode === "photos") {
+      allFiles = allFiles.filter(
+        (f) => f.type === "image" || f.type === "video"
+      );
+    }
+
+    /* ===============================
+       5️⃣ SEARCH
     =============================== */
     if (search) {
       const q = search.toLowerCase();
-
       allFiles = allFiles.filter((file) =>
         file.name?.toLowerCase().includes(q)
       );
     }
 
     /* ===============================
-       5️⃣ TYPE FILTER
+       6️⃣ TYPE FILTER
     =============================== */
     if (type) {
       allFiles = allFiles.filter((f) => f.type === type);
     }
 
     /* ===============================
-       6️⃣ SORT (LATEST FIRST)
+       7️⃣ SORT
     =============================== */
     allFiles.sort(
       (a, b) =>
@@ -111,21 +109,12 @@ export const getAllFiles = async (userId, query = {}) => {
     );
 
     /* ===============================
-       7️⃣ PAGINATION (FRONTEND LEVEL)
-    =============================== */
-    const start = (page - 1) * limit;
-    const paginatedFiles = allFiles.slice(
-      start,
-      start + Number(limit)
-    );
-
-    /* ===============================
        8️⃣ RESPONSE
     =============================== */
     if (view === "accounts") {
-      return groupByAccounts(paginatedFiles);
+      return groupByAccounts(allFiles);
     } else {
-      return groupByType(paginatedFiles);
+      return groupByType(allFiles);
     }
   } catch (err) {
     console.error("🔥 Aggregator Error:", err.message);
@@ -147,10 +136,13 @@ const groupByAccounts = (files) => {
     }
 
     if (!grouped[file.provider][file.accountId]) {
-      grouped[file.provider][file.accountId] = [];
+      grouped[file.provider][file.accountId] = {
+        email: file.accountEmail,
+        files: [],
+      };
     }
 
-    grouped[file.provider][file.accountId].push(file);
+    grouped[file.provider][file.accountId].files.push(file);
   });
 
   return grouped;
