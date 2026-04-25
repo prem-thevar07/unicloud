@@ -1,19 +1,12 @@
 import { google } from "googleapis";
 
-/* ===============================
-   SAFE GOOGLE FILE FETCHER 🔥
-=============================== */
-export const fetchGoogleFiles = async (account) => {
+export const fetchGoogleFiles = async (account, pageToken = null) => {
   try {
-    console.log("🚀 Google fetch started");
+    console.log("⏳ Google fetch start");
 
-    /* ===============================
-       CREATE CLIENT (CORRECT WAY)
-    =============================== */
     const oauth2Client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI // optional but good practice
+      process.env.GOOGLE_CLIENT_SECRET
     );
 
     oauth2Client.setCredentials({
@@ -21,34 +14,24 @@ export const fetchGoogleFiles = async (account) => {
       refresh_token: account.refreshToken,
     });
 
-    const drive = google.drive({
-      version: "v3",
-      auth: oauth2Client,
+    const drive = google.drive({ version: "v3", auth: oauth2Client });
+
+    const res = await drive.files.list({
+      pageSize: 20, // 🔥 controlled
+      pageToken,
+      orderBy: "createdTime desc",
+      fields:
+        "nextPageToken, files(id,name,mimeType,size,thumbnailLink,webViewLink,createdTime)",
     });
-
-    /* ===============================
-       SAFE API CALL (TIMEOUT PROTECTION 🔥)
-    =============================== */
-    const response = await Promise.race([
-      drive.files.list({
-        pageSize: 20,
-        fields:
-          "files(id,name,mimeType,size,thumbnailLink,webViewLink,createdTime)",
-      }),
-
-      // 🔥 TIMEOUT (prevents infinite hang)
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Google API timeout")), 4000)
-      ),
-    ]);
 
     console.log("✅ Google fetch success");
 
-    return response.data.files || [];
+    return {
+      files: res.data.files || [],
+      nextPageToken: res.data.nextPageToken || null,
+    };
   } catch (err) {
-    console.error("❌ Google Provider Error:", err.message);
-
-    // 🔥 NEVER BREAK SYSTEM
-    return [];
+    console.error("❌ Google failed:", err.message);
+    return { files: [], nextPageToken: null };
   }
 };

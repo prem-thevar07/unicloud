@@ -52,14 +52,18 @@ export const getAllFiles = async (userId, query = {}) => {
           if (account.provider === "google") {
             console.log("⏳ Google fetch start");
 
-            files = await withTimeout(
+            const res = await withTimeout(
               fetchGoogleFiles(account),
               5000
             );
 
-            console.log("✅ Google fetch done");
+            // 🔥 FIX: extract files array correctly
+            files = res?.files || [];
+
+            console.log(`✅ Google fetch done (${files.length} files)`);
           }
 
+          // Normalize safely
           return files
             .map((file) =>
               normalizeFile(file, account.provider, account._id)
@@ -70,7 +74,7 @@ export const getAllFiles = async (userId, query = {}) => {
             `❌ ${account.provider} failed:`,
             err.message
           );
-          return []; // 🔥 NEVER BLOCK
+          return []; // NEVER BREAK SYSTEM
         }
       })
     );
@@ -99,7 +103,7 @@ export const getAllFiles = async (userId, query = {}) => {
     }
 
     /* ===============================
-       6️⃣ SORT
+       6️⃣ SORT (LATEST FIRST)
     =============================== */
     allFiles.sort(
       (a, b) =>
@@ -107,7 +111,7 @@ export const getAllFiles = async (userId, query = {}) => {
     );
 
     /* ===============================
-       7️⃣ PAGINATION
+       7️⃣ PAGINATION (FRONTEND LEVEL)
     =============================== */
     const start = (page - 1) * limit;
     const paginatedFiles = allFiles.slice(

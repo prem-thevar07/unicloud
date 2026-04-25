@@ -2,225 +2,159 @@ import { useEffect, useState } from "react";
 import { getFiles } from "../services/fileService";
 import "../styles/files.css";
 
+const providerIcons = {
+  google: "https://cdn-icons-png.flaticon.com/512/2991/2991148.png",
+};
+
 const Files = () => {
-  const [view, setView] = useState("unified");
-  const [type, setType] = useState("");
-  const [search, setSearch] = useState("");
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [files, setFiles] = useState([]);
+  const [filtered, setFiltered] = useState([]);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [page, setPage] = useState(1);
+
+  const [provider, setProvider] = useState("all");
+  const [account, setAccount] = useState("all");
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const res = await getFiles({ view, type, search, page });
-        setData(res || {});
-      } catch (err) {
-        console.error(err);
-        setData({});
-      }
-      setLoading(false);
-    };
+    fetchFiles();
+  }, []);
 
-    fetchData();
-  }, [view, type, search, page]);
+  useEffect(() => {
+    applyFilters();
+  }, [files, provider, account]);
+
+  const fetchFiles = async () => {
+    try {
+      const res = await getFiles({ view: "unified" });
+
+      // 🔥 flatten data
+      const all = [
+        ...(res.document || []),
+        ...(res.other || []),
+      ];
+
+      setFiles(all);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const applyFilters = () => {
+    let data = [...files];
+
+    if (provider !== "all") {
+      data = data.filter((f) => f.provider === provider);
+    }
+
+    if (account !== "all") {
+      data = data.filter((f) => f.accountId === account);
+    }
+
+    setFiltered(data);
+  };
 
   return (
-    <div className="files-page">
+    <div className="files-layout">
       {/* SIDEBAR */}
       <aside className="sidebar">
-        <h2>📂 Files</h2>
+        <h2>Unicloud</h2>
 
-        <div className="sidebar-section">
-          <h4>Categories</h4>
-          <button onClick={() => setType("")}>All</button>
-          <button onClick={() => setType("image")}>Images</button>
-          <button onClick={() => setType("video")}>Videos</button>
-          <button onClick={() => setType("document")}>Documents</button>
+        <div className="menu">
+          <button className="active">📁 Files</button>
+          <button>🖼 Photos</button>
         </div>
 
-        <div className="sidebar-section">
-          <h4>View</h4>
-          <button onClick={() => setView("unified")}>Unified</button>
-          <button onClick={() => setView("accounts")}>Accounts</button>
+        <h4>Cloud Accounts</h4>
+
+        <div className="provider">
+          <img src={providerIcons.google} alt="google" />
+          <span>Google Drive</span>
+        </div>
+
+        <div className="account">
+          <span>prem@gmail.com</span>
         </div>
       </aside>
 
       {/* MAIN */}
-      <main className="files-main">
-        {/* TOPBAR */}
-        <div className="topbar">
-          <input
-            type="text"
-            placeholder="🔍 Search files..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+      <main className="main">
+        <div className="table">
+          <div className="table-header">
+            <span>Name</span>
+            <span>Source</span>
+            <span>Modified</span>
+            <span>Size</span>
+            <span>Open</span>
+          </div>
 
-        {loading && <p className="loading">Loading files...</p>}
+          {filtered.map((file) => (
+            <div
+              key={file.id}
+              className={`row ${
+                selectedFile?.id === file.id ? "active" : ""
+              }`}
+              onClick={() => setSelectedFile(file)}
+            >
+              <span>{file.name}</span>
 
-        {!loading && data && (
-          <>
-            {view === "unified" && renderUnified(data, setSelectedFile)}
-            {view === "accounts" && renderAccounts(data, setSelectedFile)}
+              <span className="source">
+                <img
+                  src={providerIcons[file.provider]}
+                  alt="provider"
+                />
+                {file.provider}
+              </span>
 
-            {/* LOAD MORE */}
-            <div className="load-more">
-              <button onClick={() => setPage((p) => p + 1)}>
-                Load More
-              </button>
+              <span>
+                {file.createdAt
+                  ? new Date(file.createdAt).toLocaleString()
+                  : "-"}
+              </span>
+
+              <span>{file.size || "-"}</span>
+
+              <span>
+                <a
+                  href={file.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Open ↗
+                </a>
+              </span>
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </main>
 
-      {selectedFile && (
-        <div className="preview-overlay" onClick={() => setSelectedFile(null)}>
-          <div className="preview-box" onClick={(e) => e.stopPropagation()}>
-            <button className="close-btn" onClick={() => setSelectedFile(null)}>
-              ✖
-            </button>
+      {/* DETAILS PANEL */}
+      <aside className="details">
+        {selectedFile ? (
+          <>
+            <div className="preview">
+              <div className="file-icon">📄</div>
+            </div>
 
             <h3>{selectedFile.name}</h3>
 
-            {/* IMAGE */}
-            {selectedFile.type === "image" && (
-  <iframe
-    src={selectedFile.previewUrl}
-    width="500"
-    height="400"
-  />
-)}
+            <p>Provider: {selectedFile.provider}</p>
+            <p>Size: {selectedFile.size || "-"}</p>
 
-            {/* VIDEO */}
-            {selectedFile.type === "video" && (
-              <iframe
-                src={selectedFile.url}
-                width="600"
-                height="400"
-                allow="autoplay"
-              />
-            )}
-
-            {/* DOCUMENT */}
-            {selectedFile.type === "document" && (
-              <iframe
-                src={selectedFile.url}
-                width="600"
-                height="500"
-              />
-            )}
-
-            {/* FALLBACK */}
-            {selectedFile.type === "other" && (
-              <p>No preview available</p>
-            )}
-
-            {/* OPEN BUTTON */}
             <a
               href={selectedFile.url}
               target="_blank"
               rel="noreferrer"
-              className="open-btn-large"
+              className="open-btn"
             >
-              Open in new tab ↗
+              Open File
             </a>
-          </div>
-        </div>
-      )}
+          </>
+        ) : (
+          <p>Select a file</p>
+        )}
+      </aside>
     </div>
   );
 };
 
 export default Files;
-
-/* ===============================
-   RENDERERS
-=============================== */
-
-const renderUnified = (data, setSelectedFile) => {
-  return Object.keys(data).map((type) => (
-    <section key={type}>
-      <h2 className="section-title">{type}</h2>
-
-      <div className="grid">
-        {data[type].map((file) => (
-          <FileCard
-            key={file.id}
-            file={file}
-            onClick={() => setSelectedFile(file)}
-          />
-        ))}
-      </div>
-    </section>
-  ));
-};
-
-const renderAccounts = (data, setSelectedFile) => {
-  return Object.keys(data).map((provider) => (
-    <section key={provider}>
-      <h2 className="section-title">{provider}</h2>
-
-      {Object.keys(data[provider]).map((accountId) => (
-        <div key={accountId}>
-          <h4 className="account-title">Account: {accountId}</h4>
-
-          <div className="grid">
-            {data[provider][accountId].map((file) => (
-              <FileCard
-                key={file.id}
-                file={file}
-                onClick={() => setSelectedFile(file)}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
-    </section>
-  ));
-};
-
-/* ===============================
-   FILE CARD
-=============================== */
-
-const FileCard = ({ file, onClick }) => {
-  return (
-    <div className="file-card">
-      {/* CLICKABLE AREA */}
-      <div onClick={onClick}>
-        {file.type === "image" ? (
-          <img
-            src={file.thumbnail}
-            alt={file.name}
-            onError={(e) => {
-              e.target.src = "https://via.placeholder.com/150?text=No+Preview";
-            }}
-          />
-        ) : (
-          <div className="file-icon">
-            {file.type === "video" && "🎥"}
-            {file.type === "document" && "📄"}
-            {file.type === "other" && "📁"}
-          </div>
-        )}
-
-        <p className="file-name">{file.name}</p>
-        <small>{file.provider}</small>
-      </div>
-
-      {/* OPEN BUTTON */}
-      <a
-        href={file.url}
-        target="_blank"
-        rel="noreferrer"
-        className="open-btn"
-      >
-        Open ↗
-      </a>
-    </div>
-  );
-};
