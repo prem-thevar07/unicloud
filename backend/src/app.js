@@ -8,6 +8,9 @@ import googleStorageRoutes from "./routes/google.storage.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import profileRoutes from "./routes/profile.routes.js";
 import fileRoutes from "./routes/file.routes.js";
+import accountRoutes from "./routes/account.routes.js";
+import photoRoutes from "./routes/photo.routes.js";
+import uploadRoutes from "./routes/upload.routes.js";
 
 import "./config/googleAuth.js";
 
@@ -56,6 +59,9 @@ app.use("/api/clouds", cloudRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/files", fileRoutes);
+app.use("/api/accounts", accountRoutes);
+app.use("/api/photos", photoRoutes);
+app.use("/api/upload", uploadRoutes);
 
 /* =======================
    HEALTH CHECK

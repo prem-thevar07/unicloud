@@ -34,8 +34,18 @@ const Auth = () => {
 
   const isPasswordValid = Object.values(passwordChecks).every(Boolean);
 
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+
+  /* ===============================
+     HANDLE TAB SWITCH
+  =============================== */
+  const handleTabSwitch = (isLoginMode) => {
+    setIsLogin(isLoginMode);
+    setError("");
+    setForm({ name: "", email: "", password: "", confirmPassword: "" });
+  };
 
   /* ===============================
      HANDLE INPUT CHANGE
@@ -43,6 +53,7 @@ const Auth = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setError(""); // Clear error on typing
 
     if (name === "password" && !isLogin) {
       setPasswordChecks(validatePassword(value));
@@ -54,12 +65,17 @@ const Auth = () => {
   =============================== */
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
 
-    // Prevent double submission
     if (loading) return;
 
     /* ---------- LOGIN ---------- */
     if (isLogin) {
+      if (!form.email || !form.password) {
+        setError("Please enter both email and password.");
+        return;
+      }
+
       try {
         setLoading(true);
 
@@ -81,7 +97,7 @@ const Auth = () => {
             state: { email: form.email }
           });
         } else {
-          alert(message || "Login failed");
+          setError(message || "Invalid email or password.");
         }
       } finally {
         setLoading(false);
@@ -91,13 +107,18 @@ const Auth = () => {
     }
 
     /* ---------- SIGN UP ---------- */
+    if (!form.name || !form.email || !form.password || !form.confirmPassword) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
-      alert("Passwords do not match");
+      setError("Passwords do not match.");
       return;
     }
 
     if (!isPasswordValid) {
-      alert("Password does not meet security requirements");
+      setError("Password does not meet security requirements.");
       return;
     }
 
@@ -110,17 +131,15 @@ const Auth = () => {
         password: form.password
       });
 
-      // Navigate ONLY after successful backend response
       navigate("/verify-otp", {
         state: { email: form.email }
       });
     } catch (err) {
-      alert(
+      setError(
         err.response?.data?.message ||
-        "Unable to send OTP. Please try again."
+        "Unable to create account. Please try again."
       );
     } finally {
-      // 🔥 THIS GUARANTEES NO INFINITE LOADER
       setLoading(false);
     }
   };
@@ -135,10 +154,6 @@ const Auth = () => {
 
   return (
     <>
-      <header className="navbar">
-        <div className="logo">Unicloud</div>
-      </header>
-
       {/* 🔄 GLOBAL LOADING OVERLAY */}
       {loading && (
         <div className="loading-overlay">
@@ -147,122 +162,158 @@ const Auth = () => {
         </div>
       )}
 
-      <main className="auth-container">
-        <h1>{isLogin ? "Welcome back" : "Create account"}</h1>
+      <main className="auth-wrapper">
+        <div className="glow-orb orb-1"></div>
+        <div className="glow-orb orb-2"></div>
 
-        <p className="subtitle">
-          {isLogin
-            ? "Sign in to access your unified dashboard."
-            : "Create an account to get started with your unified cloud experience."}
-        </p>
+        <div className="auth-card">
+          <div className="auth-header">
+            <img src="/assets/logo.png" alt="Unicloud Logo" className="auth-logo" />
+            <h1>{isLogin ? "Welcome back" : "Create an account"}</h1>
+            <p className="auth-subtitle">
+              {isLogin
+                ? "Sign in to access your unified dashboard."
+                : "Create an account for your unified cloud experience."}
+            </p>
+          </div>
 
-        <div className="tabs">
-          <button
-            className={`tab ${isLogin ? "active" : ""}`}
-            onClick={() => setIsLogin(true)}
-            disabled={loading}
-          >
-            Login
-          </button>
-          <button
-            className={`tab ${!isLogin ? "active" : ""}`}
-            onClick={() => setIsLogin(false)}
-            disabled={loading}
-          >
-            Sign up
-          </button>
-        </div>
+          <div className="auth-tabs">
+            <button
+              className={`auth-tab ${isLogin ? "active" : ""}`}
+              onClick={() => handleTabSwitch(true)}
+              type="button"
+              disabled={loading}
+            >
+              Login
+            </button>
+            <button
+              className={`auth-tab ${!isLogin ? "active" : ""}`}
+              onClick={() => handleTabSwitch(false)}
+              type="button"
+              disabled={loading}
+            >
+              Sign up
+            </button>
+          </div>
 
-        <form className="card" onSubmit={handleSubmit}>
-          {!isLogin && (
-            <input
-              type="text"
-              name="name"
-              placeholder="Full name"
-              value={form.name}
-              onChange={handleChange}
-              required
-            />
-          )}
+          <form onSubmit={handleSubmit} noValidate>
+            {error && (
+              <div className="auth-error">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                {error}
+              </div>
+            )}
 
-          <input
-            type="email"
-            name="email"
-            placeholder="Email address"
-            value={form.email}
-            onChange={handleChange}
-            required
-          />
+            {!isLogin && (
+              <div className="input-group">
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="Full name"
+                  value={form.name}
+                  onChange={handleChange}
+                  className="auth-input"
+                />
+              </div>
+            )}
 
-          <input
-            type="password"
-            name="password"
-            placeholder="Password"
-            value={form.password}
-            onChange={handleChange}
-            required
-          />
+            <div className="input-group">
+              <input
+                type="email"
+                name="email"
+                placeholder="Email address"
+                value={form.email}
+                onChange={handleChange}
+                className="auth-input"
+              />
+            </div>
 
-          {/* 🔐 PASSWORD CHECKLIST */}
-          {!isLogin && (
-            <div className="password-checklist">
-              <div className="pass1">
+            <div className="input-group">
+              <input
+                type="password"
+                name="password"
+                placeholder="Password"
+                value={form.password}
+                onChange={handleChange}
+                className="auth-input"
+              />
+            </div>
+
+            {isLogin && (
+              <div className="forgot-password">
+                <a href="#forgot" onClick={(e) => { e.preventDefault(); alert("Forgot password flow coming soon!"); }}>
+                  Forgot password?
+                </a>
+              </div>
+            )}
+
+            {/* 🔐 PASSWORD CHECKLIST */}
+            {!isLogin && (
+              <div className="password-checklist">
                 <div className={passwordChecks.length ? "check done" : "check"}>
-                  <span>✓</span> At least 8 characters
+                  <div className="check-icon">✓</div>
+                  <span>8+ characters</span>
                 </div>
                 <div className={passwordChecks.upper ? "check done" : "check"}>
-                  <span>✓</span> One uppercase letter
+                  <div className="check-icon">✓</div>
+                  <span>1 uppercase</span>
                 </div>
-              </div>
-
-              <div className="pass2">
                 <div className={passwordChecks.number ? "check done" : "check"}>
-                  <span>✓</span> One number
+                  <div className="check-icon">✓</div>
+                  <span>1 number</span>
                 </div>
                 <div className={passwordChecks.special ? "check done" : "check"}>
-                  <span>✓</span> One special character
+                  <div className="check-icon">✓</div>
+                  <span>1 special</span>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {!isLogin && (
-            <input
-              type="password"
-              name="confirmPassword"
-              placeholder="Confirm password"
-              value={form.confirmPassword}
-              onChange={handleChange}
-              required
-            />
-          )}
+            {!isLogin && (
+              <div className="input-group">
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  placeholder="Confirm password"
+                  value={form.confirmPassword}
+                  onChange={handleChange}
+                  className="auth-input"
+                />
+              </div>
+            )}
 
-          <button
-            className="primary-btn"
-            type="submit"
-            disabled={loading || (!isLogin && !isPasswordValid)}
-          >
-            {loading
-              ? isLogin
-                ? "Signing in..."
-                : "Creating account..."
-              : isLogin
-              ? "Login"
-              : "Register"}
-          </button>
+            <button
+              className="primary-btn"
+              type="submit"
+              disabled={loading || (!isLogin && !isPasswordValid)}
+            >
+              {loading
+                ? isLogin
+                  ? "Signing in..."
+                  : "Creating account..."
+                : isLogin
+                ? "Sign in"
+                : "Create account"}
+            </button>
 
-          <button
-            type="button"
-            className="google-btn"
-            onClick={googleLogin}
-            disabled={loading}
-          >
-            Continue with Google
-          </button>
-        </form>
+            <div className="divider">or continue with</div>
+
+            <button
+              type="button"
+              className="google-btn"
+              onClick={googleLogin}
+              disabled={loading}
+            >
+              <img src="/assets/google.png" alt="Google" className="google-icon" />
+              Google
+            </button>
+          </form>
+        </div>
       </main>
-
-      <footer>© 2025 Unicloud</footer>
     </>
   );
 };

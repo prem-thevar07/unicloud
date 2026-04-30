@@ -143,9 +143,35 @@
   margin-bottom: 1.2rem;
 }
 
-.storage-row span {
-  width: 120px;
+.storage-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 150px;
+}
+
+.storage-provider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
   font-size: 0.9rem;
+}
+
+.storage-icon {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.storage-email {
+  color: #9aa3c7;
+  font-size: 0.75rem;
+  margin-left: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
 }
 
 .progress {
@@ -193,29 +219,54 @@
 }
 
 /* =========================
-   TABLE
+   RECENT FILES GRID
 ========================= */
 
-.files-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
+.files-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
 }
 
-.files-table th {
-  text-align: left;
-  color: #b6bddc;
-  font-weight: 500;
-  padding-bottom: 0.6rem;
-}
-
-.files-table td {
-  padding: 0.6rem 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.files-table tbody tr:hover {
+.file-card {
   background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+
+.file-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+}
+
+.file-name {
+  font-weight: 500;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.file-provider {
+  color: #b6bddc;
+  font-size: 0.8rem;
+  text-transform: capitalize;
+}
+
+.file-link {
+  margin-top: auto;
+  align-self: flex-start;
+  font-size: 0.8rem;
+  padding: 6px 12px;
+  text-decoration: none;
 }
 
 /* =========================

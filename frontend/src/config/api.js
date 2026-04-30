@@ -1,15 +1,7 @@
 import axios from "axios";
 
-/* ===============================
-   BASE URL (SAFE FALLBACK)
-=============================== */
-
 const BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
-
-/* ===============================
-   AXIOS INSTANCE
-=============================== */
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 
 const API = axios.create({
   baseURL: BASE_URL,
@@ -20,50 +12,35 @@ const API = axios.create({
 });
 
 /* ===============================
-   REQUEST INTERCEPTOR (JWT)
+   REQUEST INTERCEPTOR
 =============================== */
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
 
-API.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    return config;
-  },
-  (error) => {
-    console.error("Request Error:", error);
-    return Promise.reject(error);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
+
+  return config;
+});
 
 /* ===============================
-   RESPONSE INTERCEPTOR (IMPORTANT)
+   RESPONSE INTERCEPTOR
 =============================== */
-
 API.interceptors.response.use(
-  (response) => response,
-
-  (error) => {
-    // 🔥 Handle no response (network issue)
-    if (!error.response) {
-      console.error("Network Error:", error.message);
-      return Promise.reject(error);
+  (res) => res,
+  (err) => {
+    if (!err.response) {
+      console.error("Network Error:", err.message);
+      return Promise.reject(err);
     }
 
-    // 🔐 Handle Unauthorized
-    if (error.response.status === 401) {
-      console.warn("Unauthorized - logging out");
-
+    if (err.response.status === 401) {
       localStorage.removeItem("token");
-
-      // redirect to login
       window.location.href = "/auth";
     }
 
-    return Promise.reject(error);
+    return Promise.reject(err);
   }
 );
 

@@ -12,7 +12,17 @@ export const getAllFiles = async (userId, query = {}) => {
       type,
       search,
       mode = "all", // files | photos | all
+      pageTokens = "{}"
     } = query;
+
+    let parsedTokens = {};
+    try {
+      parsedTokens = JSON.parse(pageTokens);
+    } catch (e) {
+      console.warn("Invalid pageTokens JSON");
+    }
+
+    const newPageTokens = {};
 
     console.log("🔥 Fetching files with mode:", mode);
 
@@ -23,7 +33,7 @@ export const getAllFiles = async (userId, query = {}) => {
 
     if (!accounts.length) {
       console.log("⚠️ No accounts connected");
-      return emptyResponse(view);
+      return emptyResponse(view, {});
     }
 
     /* ===============================
@@ -33,16 +43,19 @@ export const getAllFiles = async (userId, query = {}) => {
       accounts.map(async (account) => {
         try {
           let files = [];
+          const token = parsedTokens[account._id];
+          
+          // Skip if we already reached end of pagination for this account
+          if (token === "EOF") {
+            newPageTokens[account._id] = "EOF";
+            return [];
+          }
 
           if (account.provider === "google") {
-            console.log("⏳ Google fetch start");
-
-            const res = await fetchGoogleFiles(account);
-
-            console.log("✅ Google fetch success");
-
-            // 🔥 CRITICAL FIX
+            const res = await fetchGoogleFiles(account, token);
+            
             files = res?.files || [];
+            newPageTokens[account._id] = res?.nextPageToken || "EOF";
           }
 
           // 🔥 normalize safely
@@ -58,6 +71,7 @@ export const getAllFiles = async (userId, query = {}) => {
             .filter(Boolean);
         } catch (err) {
           console.error(`❌ ${account.provider} error:`, err.message);
+          newPageTokens[account._id] = "EOF";
           return []; // never break system
         }
       })
@@ -111,14 +125,20 @@ export const getAllFiles = async (userId, query = {}) => {
     /* ===============================
        8️⃣ RESPONSE
     =============================== */
+    let groupedData;
     if (view === "accounts") {
-      return groupByAccounts(allFiles);
+      groupedData = groupByAccounts(allFiles);
     } else {
-      return groupByType(allFiles);
+      groupedData = groupByType(allFiles);
     }
+    
+    return {
+      data: groupedData,
+      nextPageTokens: newPageTokens
+    };
   } catch (err) {
     console.error("🔥 Aggregator Error:", err.message);
-    return emptyResponse(query.view);
+    return emptyResponse(query.view, {});
   }
 };
 
@@ -176,12 +196,15 @@ const groupByType = (files) => {
    EMPTY RESPONSE
 =============================== */
 const emptyResponse = (view) => {
-  if (view === "accounts") return {};
+  if (view === "accounts") return { data: {}, nextPageTokens: {} };
 
   return {
-    image: [],
-    video: [],
-    document: [],
-    other: [],
+    data: {
+      image: [],
+      video: [],
+      document: [],
+      other: [],
+    },
+    nextPageTokens: {}
   };
 };

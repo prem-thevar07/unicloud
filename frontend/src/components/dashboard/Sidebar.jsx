@@ -11,7 +11,9 @@ const Sidebar = () => {
 
   return (
     <aside className="sidebar glass-card">
-      <h1 className="logo">Unicloud</h1>
+      <div className="logo" style={{ marginBottom: "2rem", display: "flex", justifyContent: "center" }}>
+        <img src="/assets/logo.png" alt="Unicloud Logo" style={{ height: "32px", objectFit: "contain" }} />
+      </div>
 
       <nav>
         <button><FaCloud /> Dashboard</button>

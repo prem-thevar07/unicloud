@@ -56,7 +56,9 @@ const OtpVerify = () => {
   return (
     <>
       <header className="navbar">
-        <div className="logo">Unicloud</div>
+        <div className="logo">
+          <img src="/assets/logo.png" alt="Unicloud Logo" style={{ height: "28px", objectFit: "contain" }} />
+        </div>
       </header>
 
       <main className="otp-container">

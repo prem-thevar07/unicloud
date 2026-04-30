@@ -10,6 +10,7 @@ const Profile = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [name, setName] = useState("");
   const [updating, setUpdating] = useState(false);
+  const [uploadingPic, setUploadingPic] = useState(false);
 
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
@@ -56,6 +57,51 @@ const Profile = () => {
 
     fetchProfile();
   }, []);
+
+  // 📸 Upload picture
+  const handlePictureUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingPic(true);
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const res = await API.post("/profile/upload-picture", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      const newAvatar = res.data.avatar;
+
+      // Update UI
+      setProfile((prev) => ({
+        ...prev,
+        user: { ...prev.user, avatar: newAvatar },
+      }));
+
+      // Update localStorage (for Header)
+      const storedUser = JSON.parse(localStorage.getItem("user"));
+      if (storedUser) {
+        localStorage.setItem(
+          "user",
+          JSON.stringify({ ...storedUser, avatar: newAvatar })
+        );
+      }
+
+      // Notify Header
+      window.dispatchEvent(new Event("user-updated"));
+
+    } catch (err) {
+      console.error("Failed to upload picture", err);
+      alert(err.response?.data?.message || "Failed to upload picture");
+    } finally {
+      setUploadingPic(false);
+      e.target.value = null; // reset input
+    }
+  };
 
   // ✏️ Update name
   const handleNameUpdate = async () => {
@@ -113,10 +159,27 @@ const Profile = () => {
             {/* PROFILE CARD */}
             <div className="card">
               <div className="avatar-row">
-                <div className="avatar">
-                  {user.name?.charAt(0).toUpperCase()}
+                <div className="avatar" style={{ padding: user.avatar ? "0" : undefined, overflow: "hidden" }}>
+                  {user.avatar ? (
+                    <img src={user.avatar} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  ) : (
+                    user.name?.charAt(0).toUpperCase()
+                  )}
                 </div>
-                <button className="btn-secondary">Change picture</button>
+                <input 
+                  type="file" 
+                  id="profilePicInput" 
+                  style={{ display: "none" }} 
+                  accept="image/*" 
+                  onChange={handlePictureUpload} 
+                />
+                <button 
+                  className="btn-secondary" 
+                  onClick={() => document.getElementById('profilePicInput').click()}
+                  disabled={uploadingPic}
+                >
+                  {uploadingPic ? "Uploading..." : "Change picture"}
+                </button>
               </div>
 
               <label>Name</label>

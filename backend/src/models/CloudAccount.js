@@ -5,20 +5,84 @@ const cloudAccountSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true
+      required: true,
+      index: true, // 🔥 faster queries
     },
+
     provider: {
       type: String,
-      required: true // "google"
+      required: true, // "google", "onedrive", etc.
+      index: true,
     },
-    accessToken: String,
-    refreshToken: String,
-    scope: [String],
-    connectedAt: Date,
-    storageUsed: Number,
-    storageTotal: Number
+
+    email: {
+      type: String,
+      required: true,
+      lowercase: true,
+      trim: true,
+    },
+
+    accessToken: {
+      type: String,
+      default: null,
+    },
+
+    refreshToken: {
+      type: String,
+      default: null,
+    },
+
+    scope: {
+      type: [String],
+      default: [],
+    },
+
+    /* ===============================
+       STATUS + HEALTH
+    =============================== */
+    status: {
+      type: String,
+      enum: ["connected", "error", "syncing"],
+      default: "connected",
+    },
+
+    /* ===============================
+       STORAGE INFO
+    =============================== */
+    storage: {
+      used: { type: Number, default: 0 },
+      total: { type: Number, default: 0 },
+    },
+
+    /* ===============================
+       SYNC TRACKING
+    =============================== */
+    lastSyncedAt: {
+      type: Date,
+      default: Date.now,
+    },
   },
   { timestamps: true }
 );
+
+/* ===============================
+   🔥 UNIQUE CONSTRAINT (CRITICAL)
+   Prevent duplicate same account
+=============================== */
+cloudAccountSchema.index(
+  { userId: 1, provider: 1, email: 1 },
+  { unique: true }
+);
+
+/* ===============================
+   🔥 DEBUG HOOK (OPTIONAL BUT GREAT)
+=============================== */
+cloudAccountSchema.post("save", function (doc) {
+  console.log("💾 CloudAccount saved:", {
+    userId: doc.userId,
+    provider: doc.provider,
+    email: doc.email,
+  });
+});
 
 export default mongoose.model("CloudAccount", cloudAccountSchema);

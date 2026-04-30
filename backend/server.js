@@ -4,22 +4,68 @@ import "./env.js";
 import mongoose from "mongoose";
 import app from "./src/app.js";
 
-// ✅ Safe debug (optional — remove after testing)
-if (process.env.NODE_ENV !== "production") {
-  console.log("GOOGLE CLIENT ID loaded");
+// 🔥 OPTIONAL BACKGROUND SERVICES (SAFE LOAD)
+import "./src/services/sync.service.js";
+
+/* =======================
+   🔥 STARTUP DEBUG
+======================= */
+console.log("🚀 Starting Unicloud Backend...");
+
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI is missing in .env");
+  process.exit(1);
 }
 
-mongoose
-  .connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log("MongoDB connected");
+if (!process.env.GOOGLE_CLIENT_ID) {
+  console.warn("⚠️ GOOGLE_CLIENT_ID not set");
+}
 
-    const PORT = process.env.PORT || 5000;
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+/* =======================
+   DATABASE CONNECTION
+======================= */
+const connectDB = async () => {
+  try {
+    console.log("🔌 Connecting to MongoDB...");
+
+    await mongoose.connect(process.env.MONGO_URI, {
+      serverSelectionTimeoutMS: 5000, // fail fast
     });
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err);
-    process.exit(1); // fail fast if DB is down
+
+    console.log("✅ MongoDB connected");
+
+    startServer();
+  } catch (err) {
+    console.error("❌ MongoDB connection error:", err.message);
+    process.exit(1);
+  }
+};
+
+/* =======================
+   START EXPRESS SERVER
+======================= */
+const startServer = () => {
+  const PORT = process.env.PORT || 5000;
+
+  app.listen(PORT, () => {
+    console.log(`🌐 Server running on http://localhost:${PORT}`);
+    console.log("📦 API Ready");
   });
+};
+
+/* =======================
+   GLOBAL ERROR SAFETY
+======================= */
+process.on("unhandledRejection", (err) => {
+  console.error("🔥 Unhandled Promise Rejection:", err.message);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("🔥 Uncaught Exception:", err.message);
+  process.exit(1);
+});
+
+/* =======================
+   INIT
+======================= */
+connectDB();

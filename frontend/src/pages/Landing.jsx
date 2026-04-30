@@ -42,30 +42,31 @@ const Landing = () => {
         <section className="value-section">
           <h2>One workspace. All your clouds.</h2>
           <p>
-            {SITE_NAME} brings Google Drive, Google Photos, OneDrive, and Dropbox
-            into a single intelligent dashboard — so you can search, manage,
-            and organize everything without switching platforms.
+            {SITE_NAME} acts as a unified hub for all your Google Drive accounts. 
+            Connect multiple cloud identities into a single, intelligent dashboard. 
+            Search files, browse photos in a stunning gallery, and seamlessly upload 
+            massive 5GB files using our smart storage-balancing algorithm.
           </p>
         </section>
 
         {/* HOW IT WORKS */}
         <section className="workflow-section">
           <div className="workflow-step">
-           
-            <h3>Connect</h3>
-            <p>Securely link your cloud accounts using OAuth.</p>
+            <div className="step-icon">🔗</div>
+            <h3>Connect Securely</h3>
+            <p>Link multiple Google Drive accounts instantly using industry-standard OAuth authentication.</p>
           </div>
 
           <div className="workflow-step">
-            
-            <h3>Unify</h3>
-            <p>View files and photos together in one dashboard.</p>
+            <div className="step-icon">🖼️</div>
+            <h3>Infinite Gallery</h3>
+            <p>Browse all your photos and videos from every account in one fast, cached, infinite-scrolling grid.</p>
           </div>
 
           <div className="workflow-step">
-           
-            <h3>Control</h3>
-            <p>Search, filter, and manage content effortlessly.</p>
+            <div className="step-icon">✨</div>
+            <h3>Smart Upload</h3>
+            <p>Drop a file up to 5GB. Unicloud instantly scans your accounts and routes it to the one with the most free space.</p>
           </div>
         </section>
 

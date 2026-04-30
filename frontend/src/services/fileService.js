@@ -5,6 +5,7 @@ export const getFiles = async ({
   type,
   search,
   mode = "files", // 🔥 default = files (important)
+  pageTokens = null,
 } = {}) => {
   try {
     const params = new URLSearchParams();
@@ -13,6 +14,7 @@ export const getFiles = async ({
     if (type) params.append("type", type);
     if (search) params.append("search", search);
     if (mode) params.append("mode", mode); // 🔥 NEW
+    if (pageTokens) params.append("pageTokens", JSON.stringify(pageTokens));
 
     const res = await api.get(`/files?${params.toString()}`);
 

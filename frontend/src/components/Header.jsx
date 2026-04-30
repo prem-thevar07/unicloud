@@ -1,16 +1,19 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import "../styles/header.css";
 import { SITE_NAME } from "../config/siteConfig";
 
 const Header = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dropdownRef = useRef(null);
 
   const [user, setUser] = useState(null);
   const [open, setOpen] = useState(false);
 
-  // 🔥 SYNC USER (storage + custom event)
+  /* ===============================
+     USER SYNC
+  =============================== */
   useEffect(() => {
     const syncUser = () => {
       const storedUser = localStorage.getItem("user");
@@ -27,9 +30,7 @@ const Header = () => {
 
     syncUser();
 
-    // cross-tab
     window.addEventListener("storage", syncUser);
-    // same-tab
     window.addEventListener("user-updated", syncUser);
 
     return () => {
@@ -38,7 +39,9 @@ const Header = () => {
     };
   }, []);
 
-  // Close dropdown on outside click
+  /* ===============================
+     CLOSE DROPDOWN
+  =============================== */
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -51,74 +54,125 @@ const Header = () => {
 
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/auth";
+    setOpen(false);
+    navigate("/auth");
   };
 
   const displayName = user?.name || "User";
   const displayEmail = user?.email || "";
 
+  const isActive = (path) => {
+    if (path === "/") return location.pathname === "/" && location.hash === "";
+    if (path.startsWith("/#")) return location.hash === path.substring(1);
+    return location.pathname.startsWith(path);
+  };
+
   return (
     <header className="header">
-      <div className="logo" onClick={() => navigate("/")}>
-        {SITE_NAME}
-      </div>
+      <div className="header-container">
+        {/* LEFT: LOGO */}
+        <Link to="/" className="logo">
+          <img src="/assets/logo.png" alt="Unicloud Logo" className="logo-img" style={{ height: "28px", objectFit: "contain" }} />
+          <span className="logo-text">Unicloud</span>
+        </Link>
 
-      <nav className="nav">
-        <a href="/#features">Tools</a>
-        {/* <a href="/#about">About</a> */}
-        <Link to="/about">About</Link>
-
-
-        {!user ? (
-          <Link to="/auth" className="btn-primary2">
-            Login / Signup
+        {/* CENTER: NAV LINKS */}
+        <nav className="nav-links">
+          <Link to="/#features" className={`nav-item ${isActive("/#features") ? "active" : ""}`}>
+            Home
           </Link>
-        ) : (
-          <div className="profile-wrap" ref={dropdownRef}>
-            <button
-              className="profile-btn"
-              onClick={() => setOpen((p) => !p)}
-            >
-              <span className="avatarheader">
-                {displayName.charAt(0).toUpperCase()}
-              </span>
-              <span className="username">{displayName}</span>
-            </button>
+          <Link to="/about" className={`nav-item ${isActive("/about") ? "active" : ""}`}>
+            About
+          </Link>
 
-            {open && (
-              <div className="profile-dropdown">
-                <div className="dropdown-user">
-                  <span className="dropdown-avatar">
-                    {displayName.charAt(0).toUpperCase()}
-                  </span>
-                  <div>
-                    <strong>{displayName}</strong>
-                    {displayEmail && (
-                      <p className="muted">{displayEmail}</p>
-                    )}
-                  </div>
+          {user && (
+            <>
+              <Link to="/dashboard" className={`nav-item ${isActive("/dashboard") ? "active" : ""}`}>
+                Dashboard
+              </Link>
+              <Link to="/files" className={`nav-item ${isActive("/files") ? "active" : ""}`}>
+                Files
+              </Link>
+              <Link to="/photos" className={`nav-item ${isActive("/photos") ? "active" : ""}`}>
+                Photos
+              </Link>
+              <Link to="/manage-accounts" className={`nav-item ${isActive("/manage-accounts") ? "active" : ""}`}>
+                Manage Accounts
+              </Link>
+              <Link to="/upload" className="header-upload-btn">
+                + Upload
+              </Link>
+            </>
+          )}
+        </nav>
+
+        {/* RIGHT: AUTH / PROFILE */}
+        <div className="nav-right">
+          {!user ? (
+            <Link to="/auth" className="btn-primary">
+              Login / Sign Up
+            </Link>
+          ) : (
+            <div className="profile-wrap" ref={dropdownRef}>
+              <button
+                className={`profile-btn ${open ? "active" : ""}`}
+                onClick={() => setOpen((p) => !p)}
+                aria-label="User menu"
+              >
+                <div className="avatarheader" style={{ padding: user?.avatar ? "0" : undefined, overflow: "hidden" }}>
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                  ) : (
+                    displayName.charAt(0).toUpperCase()
+                  )}
                 </div>
+                <span className="username">{displayName}</span>
+                <svg className={`chevron ${open ? "rotate" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </button>
 
-                <hr />
+              {open && (
+                <div className="profile-dropdown">
+                  <div className="dropdown-user">
+                    <div className="dropdown-avatar" style={{ padding: user?.avatar ? "0" : undefined, overflow: "hidden" }}>
+                      {user?.avatar ? (
+                        <img src={user.avatar} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }} />
+                      ) : (
+                        displayName.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="dropdown-user-info">
+                      <strong>{displayName}</strong>
+                      {displayEmail && <p className="muted">{displayEmail}</p>}
+                    </div>
+                  </div>
 
-                <button onClick={() => navigate("/profile")}>
-                  Manage Profile
-                </button>
+                  <div className="dropdown-divider" />
 
-                <button onClick={() => navigate("/dashboard")}>
-                  Dashboard
-                </button>
+                  <button className="dropdown-item" onClick={() => { setOpen(false); navigate("/dashboard"); }}>
+                    <span className="icon">📊</span> Dashboard
+                  </button>
 
-                <hr />
+                  <button className="dropdown-item" onClick={() => { setOpen(false); navigate("/manage-accounts"); }}>
+                    <span className="icon">☁️</span> Manage Accounts
+                  </button>
 
-                <button className="danger" onClick={handleLogout}>
-                  Logout
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </nav>
+                  <button className="dropdown-item" onClick={() => { setOpen(false); navigate("/profile"); }}>
+                    <span className="icon">⚙️</span> Profile Settings
+                  </button>
+
+                  <div className="dropdown-divider" />
+
+                  <button className="dropdown-item danger" onClick={handleLogout}>
+                    <span className="icon">🚪</span> Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </header>
   );
 };

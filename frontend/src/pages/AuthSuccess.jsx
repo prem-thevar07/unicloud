@@ -20,7 +20,8 @@ const OAuthSuccess = () => {
       const user = {
         id: decoded.id,
         name: decoded.name,
-        email: decoded.email
+        email: decoded.email,
+        avatar: decoded.avatar
       };
 
       // 🔥 THIS WAS MISSING

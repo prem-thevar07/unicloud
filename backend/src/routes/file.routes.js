@@ -11,6 +11,7 @@ router.get("/", authMiddleware, async (req, res) => {
       type: req.query.type,
       search: req.query.search,
       mode: req.query.mode, // 🔥 NEW
+      pageTokens: req.query.pageTokens, // 🔥 Pagination
     });
 
     res.json(data); // 🔥 IMPORTANT FIX

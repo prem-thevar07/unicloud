@@ -4,16 +4,14 @@ import { jwtDecode } from "jwt-decode";
 import { getFiles } from "../services/fileService";
 
 import API from "../config/api";
-import Header from "../components/Header";
-import Footer from "../components/Footer";
+import MainLayout from "../layouts/MainLayout";
 import "../styles/dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
 
-  const [connectedClouds, setConnectedClouds] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [storage, setStorage] = useState(null);
   const [recentFiles, setRecentFiles] = useState([]);
 
   const token = localStorage.getItem("token");
@@ -28,30 +26,21 @@ const Dashboard = () => {
   }, [token, navigate]);
 
   /* ===============================
-     FETCH CONNECTED CLOUDS
+     FETCH ACCOUNTS & STORAGE
   =============================== */
   useEffect(() => {
     if (!token) return;
 
-    API.get("/clouds/connected")
+    API.get("/accounts")
       .then((res) => {
-        setConnectedClouds(res.data || []);
+        setAccounts(Array.isArray(res.data) ? res.data : []);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
-  }, [token]);
-
-  /* ===============================
-     FETCH GOOGLE STORAGE
-  =============================== */
-  useEffect(() => {
-    if (!token) return;
-
-    API.get("/google/storage")
-      .then((res) => {
-        setStorage(res.data?.connected ? res.data : null);
-      })
-      .catch(() => setStorage(null));
+      .catch((err) => {
+        console.error("Failed to load accounts:", err);
+        setAccounts([]);
+        setLoading(false);
+      });
   }, [token]);
 
   /* ===============================
@@ -62,10 +51,10 @@ const Dashboard = () => {
 
     const loadFiles = async () => {
       try {
-        const data = await getFiles("unified");
+        const response = await getFiles({ view: "unified", mode: "all" });
 
         // ✅ SAFE FLATTENING
-        const allFiles = flattenFiles(data);
+        const allFiles = flattenFiles(response.data);
 
         // ✅ SORT BY DATE (LATEST FIRST)
         const sorted = allFiles.sort(
@@ -94,9 +83,7 @@ const Dashboard = () => {
   };
 
   return (
-    <>
-      <Header />
-
+    <MainLayout>
       <main className="dashboard-page">
         {/* HERO */}
         <section className="dashboard-hero glass">
@@ -114,7 +101,7 @@ const Dashboard = () => {
             >
               Open Files
             </button>
-            <button className="btn-secondary">Open Photos</button>
+            <button className="btn-secondary" onClick={() => navigate("/photos")}>Open Photos</button>
           </div>
         </section>
 
@@ -126,27 +113,39 @@ const Dashboard = () => {
               <h3>Storage Summary</h3>
             </div>
 
-            <div className="storage-row">
-              <span>Google Drive</span>
+            {Array.isArray(accounts) && accounts.length > 0 ? accounts.map((acc) => (
+              <div key={`storage-${acc._id}`} className="storage-row">
+                <div className="storage-info">
+                  <span className="storage-provider">
+                    <img src={`/assets/${acc.provider === 'google' ? 'drive' : acc.provider}.png`} alt={acc.provider} className="storage-icon" />
+                    {acc.provider ? acc.provider.charAt(0).toUpperCase() + acc.provider.slice(1) : "Unknown"}
+                  </span>
+                  <small className="storage-email">{acc.email}</small>
+                </div>
 
-              {storage ? (
-                <>
-                  <div className="progress">
-                    <div
-                      className="progress-fill"
-                      style={{
-                        width: `${(storage.usedGB / storage.totalGB) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <small>
-                    {storage.usedGB} GB / {storage.totalGB} GB
-                  </small>
-                </>
-              ) : (
-                <small className="muted">Not connected</small>
-              )}
-            </div>
+                {acc.storage ? (
+                  <>
+                    <div className="progress">
+                      <div
+                        className="progress-fill"
+                        style={{
+                          width: `${(acc.storage.used / acc.storage.total) * 100}%`,
+                        }}
+                      />
+                    </div>
+                    <small>
+                      {formatSize(acc.storage.used)} / {formatSize(acc.storage.total)}
+                    </small>
+                  </>
+                ) : (
+                  <small className="muted">Calculating...</small>
+                )}
+              </div>
+            )) : (
+              <div className="storage-row">
+                <small className="muted">No accounts connected</small>
+              </div>
+            )}
           </div>
 
           {/* ACCOUNTS */}
@@ -159,20 +158,27 @@ const Dashboard = () => {
               <p className="muted">Checking...</p>
             ) : (
               <>
-                <div className="account-row">
-                  <span>Google Drive</span>
-
-                  {connectedClouds.includes("google") ? (
+                {Array.isArray(accounts) && accounts.map((acc) => (
+                  <div key={`account-${acc._id}`} className="account-row">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <img src={`/assets/${acc.provider === 'google' ? 'drive' : acc.provider}.png`} alt={acc.provider} style={{ width: '18px', height: '18px', objectFit: 'contain' }} />
+                      {acc.email}
+                    </span>
                     <span className="status connected">Connected</span>
-                  ) : (
+                  </div>
+                ))}
+                
+                {(!accounts || accounts.length === 0) && (
+                  <div className="account-row">
+                    <span>Google Drive</span>
                     <button
                       className="btn-primary"
                       onClick={handleGoogleConnect}
                     >
                       Connect
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="account-row disabled">
                   <span>OneDrive</span>
@@ -205,17 +211,17 @@ const Dashboard = () => {
               ) : (
                 recentFiles.map((file) => (
                   <div key={file.id} className="file-card">
-                    <p className="file-name">{file.name}</p>
-                    <small>{file.provider}</small>
+                    <p className="file-name" title={file.name}>{file.name}</p>
+                    <small className="file-provider">{file.provider}</small>
 
                     {file.url && (
                       <a
                         href={file.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="file-link"
+                        className="file-link btn-secondary"
                       >
-                        Open
+                        Open ↗
                       </a>
                     )}
                   </div>
@@ -231,17 +237,15 @@ const Dashboard = () => {
             </div>
 
             <ul className="activity-list">
-              {connectedClouds.includes("google") && (
-                <li>Google Drive connected</li>
+              {Array.isArray(accounts) && accounts.some(acc => acc.provider === "google") && (
+                <li><span className="dot"></span> Google Drive connected</li>
               )}
-              <li className="muted">More activity coming</li>
+              <li className="muted"><span className="dot" style={{background: 'transparent', border: '1px solid #9aa3c7'}}></span> More activity coming soon</li>
             </ul>
           </div>
         </section>
       </main>
-
-      <Footer />
-    </>
+    </MainLayout>
   );
 };
 
@@ -251,7 +255,7 @@ export default Dashboard;
    🔥 HELPER FUNCTION (IMPORTANT)
 =============================== */
 
-const flattenFiles = (data) => {
+function flattenFiles(data) {
   if (!data) return [];
 
   return [
@@ -260,4 +264,12 @@ const flattenFiles = (data) => {
     ...(data.document || []),
     ...(data.other || []),
   ];
-};
+}
+
+function formatSize(bytes) {
+  if (!bytes) return "0 B";
+
+  const sizes = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return (bytes / Math.pow(1024, i)).toFixed(1) + " " + sizes[i];
+}

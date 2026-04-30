@@ -117,3 +117,36 @@ export const changePassword = async (req, res) => {
   }
 };
 
+// ================================
+// UPLOAD PROFILE PICTURE
+// ================================
+export const uploadProfilePicture = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "No image file provided" });
+    }
+
+    const backendBaseUrl = process.env.BACKEND_URL || "http://localhost:5001";
+    const avatarUrl = `${backendBaseUrl}/uploads/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { avatar: avatarUrl },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    res.json({
+      success: true,
+      avatar: user.avatar,
+    });
+  } catch (err) {
+    console.error("Upload profile picture error:", err);
+    res.status(500).json({ message: "Failed to upload picture" });
+  }
+};

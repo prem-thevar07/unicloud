@@ -9,9 +9,13 @@ import Profile from "./pages/Profile";
 import OAuthSuccess from "./pages/OAuthSuccess";
 import About from "./pages/About";
 import Files from "./pages/Files";
+import ManageAccounts from "./pages/ManageAccounts";
 
 
 
+
+import Photos from "./pages/Photos";
+import Upload from "./pages/Upload";
 
 function App() {
   return (
@@ -24,6 +28,9 @@ function App() {
       <Route path="/oauth-success" element={<OAuthSuccess />} />
       <Route path="/about" element={<About />} />
       <Route path="/files" element={<Files />} />
+      <Route path="/manage-accounts" element={<ManageAccounts />} />
+      <Route path="/photos" element={<ProtectedRoute><Photos /></ProtectedRoute>} />
+      <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
       
 
 

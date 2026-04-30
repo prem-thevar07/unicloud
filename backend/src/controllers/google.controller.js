@@ -1,5 +1,4 @@
 import { google } from "googleapis";
-import { oauth2Client } from "../config/google.js";
 import CloudAccount from "../models/CloudAccount.js";
 import { normalizeGoogleFile } from "../utils/fileNormalizer.js";
 
@@ -8,6 +7,8 @@ import { normalizeGoogleFile } from "../utils/fileNormalizer.js";
 =============================== */
 export const googleCallback = async (req, res) => {
   try {
+    console.log("🔁 Google OAuth callback triggered");
+
     const { code, state } = req.query;
 
     if (!state) {
@@ -19,66 +20,7 @@ export const googleCallback = async (req, res) => {
     }
 
     /* ===============================
-       EXCHANGE CODE FOR TOKENS
-    =============================== */
-    const { tokens } = await oauth2Client.getToken(code);
-
-    oauth2Client.setCredentials(tokens);
-
-    /* ===============================
-       HANDLE REFRESH TOKEN SAFELY
-    =============================== */
-    const existingAccount = await CloudAccount.findOne({
-      userId: state,
-      provider: "google",
-    });
-
-    const refreshToken =
-      tokens.refresh_token || existingAccount?.refreshToken || null;
-
-    /* ===============================
-       SAVE ACCOUNT
-    =============================== */
-    await CloudAccount.findOneAndUpdate(
-      { userId: state, provider: "google" },
-      {
-        userId: state,
-        provider: "google",
-        accessToken: tokens.access_token,
-        refreshToken: refreshToken,
-        scope: tokens.scope ? tokens.scope.split(" ") : [],
-      },
-      { upsert: true, new: true }
-    );
-
-    /* ===============================
-       REDIRECT
-    =============================== */
-    res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
-  } catch (err) {
-    console.error("Google OAuth Error:", err.message);
-    res.status(500).send("Google OAuth failed");
-  }
-};
-
-/* ===============================
-   FETCH GOOGLE FILES
-=============================== */
-export const getGoogleFiles = async (req, res) => {
-  try {
-    const userId = req.user.id;
-
-    const account = await CloudAccount.findOne({
-      userId,
-      provider: "google",
-    });
-
-    if (!account) {
-      return res.json([]);
-    }
-
-    /* ===============================
-       CREATE CLIENT (CORRECT WAY ✅)
+       CREATE CLIENT
     =============================== */
     const client = new google.auth.OAuth2(
       process.env.GOOGLE_CLIENT_ID,
@@ -86,36 +28,176 @@ export const getGoogleFiles = async (req, res) => {
       process.env.GOOGLE_REDIRECT_URI
     );
 
-    client.setCredentials({
-      access_token: account.accessToken,
-      refresh_token: account.refreshToken,
-    });
+    /* ===============================
+       EXCHANGE CODE
+    =============================== */
+    const { tokens } = await client.getToken(code);
+    client.setCredentials(tokens);
 
-    const drive = google.drive({ version: "v3", auth: client });
+    console.log("✅ Tokens received");
 
     /* ===============================
-       SAFE FETCH (TIMEOUT PROTECTION 🔥)
+       GET USER EMAIL (🔥 CRITICAL)
     =============================== */
-    const response = await Promise.race([
-      drive.files.list({
-        pageSize: 20,
-        fields:
-          "files(id,name,mimeType,size,thumbnailLink,webViewLink,createdTime)",
-      }),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Google API timeout")), 5000)
-      ),
-    ]);
+    const oauth2 = google.oauth2({
+      auth: client,
+      version: "v2",
+    });
 
-    const files = response.data.files || [];
+    const userInfo = await oauth2.userinfo.get();
+    const email = userInfo.data.email;
 
-    const normalizedFiles = files.map(normalizeGoogleFile);
+    console.log("📧 Google account:", email);
 
-    res.json(normalizedFiles);
+    /* ===============================
+       HANDLE REFRESH TOKEN SAFELY
+    =============================== */
+    const existingAccount = await CloudAccount.findOne({
+      userId: state,
+      provider: "google",
+      email,
+    });
+
+    const refreshToken =
+      tokens.refresh_token || existingAccount?.refreshToken || null;
+
+    if (!refreshToken) {
+      console.warn("⚠️ No refresh token received");
+    }
+
+    /* ===============================
+       FETCH STORAGE (SAFE)
+    =============================== */
+    let storage = { used: 0, total: 0 };
+
+    try {
+      const drive = google.drive({ version: "v3", auth: client });
+
+      const about = await drive.about.get({
+        fields: "storageQuota",
+      });
+
+      storage = {
+        used: Number(about.data.storageQuota.usage || 0),
+        total: Number(about.data.storageQuota.limit || 0),
+      };
+
+      console.log("📊 Storage:", storage);
+    } catch (err) {
+      console.warn("⚠️ Storage fetch skipped:", err.message);
+    }
+
+    /* ===============================
+       SAVE ACCOUNT (MULTI-ACCOUNT FIX 🔥)
+    =============================== */
+    await CloudAccount.findOneAndUpdate(
+      {
+        userId: state,
+        provider: "google",
+        email, // 🔥 UNIQUE KEY
+      },
+      {
+        userId: state,
+        provider: "google",
+        email,
+        accessToken: tokens.access_token,
+        refreshToken,
+        scope: tokens.scope ? tokens.scope.split(" ") : [],
+
+        status: "connected",
+        storage,
+        lastSyncedAt: new Date(),
+      },
+      {
+        upsert: true,
+        new: true,
+      }
+    );
+
+    console.log("💾 Account saved:", email);
+
+    /* ===============================
+       REDIRECT
+    =============================== */
+    res.redirect(`${process.env.FRONTEND_URL}/manage-accounts`);
   } catch (err) {
-    console.error("Fetch Google Files Error:", err.message);
+    console.error("❌ Google OAuth Error:", err.message);
+    res.status(500).send("Google OAuth failed");
+  }
+};
 
-    // 🔥 DO NOT CRASH SERVER
+/* ===============================
+   FETCH GOOGLE FILES (MULTI ACCOUNT)
+=============================== */
+export const getGoogleFiles = async (req, res) => {
+  try {
+    console.log("📂 Fetching Google files");
+
+    const userId = req.user.id;
+
+    const accounts = await CloudAccount.find({
+      userId,
+      provider: "google",
+    });
+
+    if (!accounts.length) {
+      console.log("⚠️ No Google accounts");
+      return res.json([]);
+    }
+
+    let allFiles = [];
+
+    /* ===============================
+       PARALLEL FETCH (FASTER 🔥)
+    =============================== */
+    const results = await Promise.all(
+      accounts.map(async (account) => {
+        try {
+          console.log("👉 Fetching:", account.email);
+
+          const client = new google.auth.OAuth2(
+            process.env.GOOGLE_CLIENT_ID,
+            process.env.GOOGLE_CLIENT_SECRET,
+            process.env.GOOGLE_REDIRECT_URI
+          );
+
+          client.setCredentials({
+            access_token: account.accessToken,
+            refresh_token: account.refreshToken,
+          });
+
+          const drive = google.drive({ version: "v3", auth: client });
+
+          const response = await Promise.race([
+            drive.files.list({
+              pageSize: 20,
+              fields:
+                "files(id,name,mimeType,size,thumbnailLink,webViewLink,createdTime)",
+            }),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error("Timeout")), 5000)
+            ),
+          ]);
+
+          const files = response.data.files || [];
+
+          return files.map((file) =>
+            normalizeGoogleFile(file, account._id, account.email)
+          );
+        } catch (err) {
+          console.error("❌ Failed:", account.email);
+          return [];
+        }
+      })
+    );
+
+    allFiles = results.flat();
+
+    console.log("✅ Total files:", allFiles.length);
+
+    res.json(allFiles);
+  } catch (err) {
+    console.error("❌ Fetch Google Files Error:", err.message);
     res.json([]);
   }
 };
